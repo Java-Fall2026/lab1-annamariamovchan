@@ -1,78 +1,45 @@
 package ua.fitness;
 
-import ua.fitness.model.Member;
-import ua.fitness.model.MembershipPass;
-import ua.fitness.model.Trainer;
-import ua.fitness.model.WorkoutSession;
-import ua.fitness.util.FitnessUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ua.fitness.model.*;
+import ua.fitness.util.TrainerLoader;
 
 import java.time.LocalDate;
 
 public class Main {
+    private static final Logger log = LoggerFactory.getLogger(Main.class);
+
     public static void main(String[] args) {
-        System.out.println("1. Створення об'єктів (конструктор і фабрика) та нормалізація");
-        
-        Member member = new Member("TAX12345", "Anna Motin", LocalDate.of(2005, 5, 15));
-        
-        Trainer trainer1 = new Trainer("TR-01", "Ivan Olivka", "  yoga ");
-        
-        MembershipPass pass = MembershipPass.of(
-                "PASS-999", member, "vip",
-                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 11, 1), 1500.0
-        );
-        
-        WorkoutSession session = WorkoutSession.of(trainer1, pass, LocalDate.of(2026, 10, 15), 60);
+        log.info("Starting Lab 3 execution");
 
-        System.out.println("Нормалізована спеціальність тренера: "+trainer1.getSpecialty());
-        System.out.println("Нормалізований тип абонемента: "+pass.getType());
+        System.out.println("1. Читання файлу (з коректними та некоректними рядками)");
+        var trainers = TrainerLoader.loadTrainers("data/trainers.csv");
+        System.out.println("Успішно завантажено: " + trainers.size());
 
+        System.out.println("\n2. Спроба прочитати відсутній файл ");
+        var missingTrainers = TrainerLoader.loadTrainers("data/not_exists.csv");
 
-        System.out.println("\n2. Демонстрація порушення правил (try/catch)");
-        
+        System.out.println("\n3. Некоректне значення в сеттері змінюваного класу");
         try {
-            new Member("TAX999", "Young Boy", LocalDate.of(2015, 1, 1));
+            Trainer dummyTrainer = new Trainer("T-1", "Test", Specialty.GYM);
+            Member dummyMember = new Member("M-1", "Test Member", LocalDate.of(2000, 1, 1));
+            MembershipPass dummyPass = new MembershipPass(
+                "PASS-1", dummyMember, PassType.values()[0], 
+                LocalDate.now(), LocalDate.now().plusDays(30), 1000.0
+            );
+
+            WorkoutSession session = new WorkoutSession(dummyTrainer, dummyPass, LocalDate.now().plusDays(5), 60);
+            log.info("Session created. Attempting to set invalid duration...");
+            
+            session.setDurationMinutes(-15); 
+            
         } catch (IllegalArgumentException e) {
-            System.out.println("Помилка віку: " + e.getMessage());
+            log.error("Setter validation failed: {}", e.getMessage());
+            System.out.println("Перехоплено помилку сеттера: " + e.getMessage());
         }
 
-        try {
-            new Trainer("TR-02", "Petro", "BOXING");
-        } catch (IllegalArgumentException e) {
-            System.out.println("Помилка спеціальності: " + e.getMessage());
-        }
-
-        try {
-            MembershipPass.of("ERR", member, "STANDARD", 
-                    LocalDate.of(2026, 10, 1), LocalDate.of(2026, 9, 1), 100);
-        } catch (IllegalArgumentException e) {
-            System.out.println("Помилка дат: " + e.getMessage());
-        }
-
-
-        System.out.println("\n3. Порівняння об'єктів (== та equals)");
-        Trainer trainer2 = new Trainer("TR-01", "Ivan Olijnyk", "YOGA");
-        
-        System.out.println("trainer1 == trainer2 (різні ділянки пам'яті): "+(trainer1 == trainer2));
-        System.out.println("trainer1.equals(trainer2) (однаковий ID): "+trainer1.equals(trainer2));
-        System.out.println("trainer1.hashCode() == trainer2.hashCode(): "+(trainer1.hashCode() == trainer2.hashCode()));
-
-
-        System.out.println("\n4. Виклик обчислюваних методів з Utils");
-        System.out.println("Тривалість абонемента (днів): "+FitnessUtils.passDurationDays(pass));
-        System.out.println("Вартість одного дня (грн): "+FitnessUtils.pricePerDay(pass));
-
-
-        System.out.println("\n5. Вивід усіх сутностей через toString()");
-        System.out.println(member);
-        System.out.println(trainer1);
-        System.out.println(pass);
-        System.out.println(session);
-
-        // 6. Uncompilable lines (Lab requirement) 
-        // Reason 1: ValidationHelper is package-private, so it is inaccessible outside the util package.
-        // ua.fitness.util.ValidationHelper.requireNotNull(member, "member");
-
-        // Reason 2: MembershipPass constructor is private, objects can only be created via the static of() method.
-        // MembershipPass errorPass = new MembershipPass("CODE", member, "VIP", LocalDate.now(), LocalDate.now().plusDays(1), 100);
+        System.out.println("\n4. Логування всіх трьох рівнів продемонстровано вище");
+        log.info("Lab 3 execution finished successfully");
     }
 }
