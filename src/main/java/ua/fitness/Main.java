@@ -1,60 +1,45 @@
 package ua.fitness;
 
-import ua.fitness.model.Member;
-import ua.fitness.model.MembershipPass;
-import ua.fitness.model.PassType;
-import ua.fitness.model.Specialty;
-import ua.fitness.model.Trainer;
-import ua.fitness.util.FitnessUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ua.fitness.model.*;
+import ua.fitness.util.TrainerLoader;
 
 import java.time.LocalDate;
 
 public class Main {
+    private static final Logger log = LoggerFactory.getLogger(Main.class);
+
     public static void main(String[] args) {
-        System.out.println("1. Створення record та звернення до компонентів");
-        Member member = new Member("TAX123", "Anna Motin", LocalDate.of(2005, 5, 15));
-        System.out.println("Member TaxID: " + member.taxId());
+        log.info("Starting Lab 3 execution");
 
-        System.out.println("\n2. Робота з Enum");
-        System.out.print("Усі типи абонементів: ");
-        for (PassType type : PassType.values()) {
-            System.out.print(type + "(factor: " +type.getPriceFactor() + ")");
-        }
-        System.out.println();
+        System.out.println("1. Читання файлу (з коректними та некоректними рядками)");
+        var trainers = TrainerLoader.loadTrainers("data/trainers.csv");
+        System.out.println("Успішно завантажено: " + trainers.size());
 
-        System.out.println("\nEnum: valueOf з помилкою (try/catch) ");
+        System.out.println("\n2. Спроба прочитати відсутній файл ");
+        var missingTrainers = TrainerLoader.loadTrainers("data/not_exists.csv");
+
+        System.out.println("\n3. Некоректне значення в сеттері змінюваного класу");
         try {
-            PassType wrongType = PassType.valueOf("SUPER_VIP");
+            Trainer dummyTrainer = new Trainer("T-1", "Test", Specialty.GYM);
+            Member dummyMember = new Member("M-1", "Test Member", LocalDate.of(2000, 1, 1));
+            MembershipPass dummyPass = new MembershipPass(
+                "PASS-1", dummyMember, PassType.values()[0], 
+                LocalDate.now(), LocalDate.now().plusDays(30), 1000.0
+            );
+
+            WorkoutSession session = new WorkoutSession(dummyTrainer, dummyPass, LocalDate.now().plusDays(5), 60);
+            log.info("Session created. Attempting to set invalid duration...");
+            
+            session.setDurationMinutes(-15); 
+            
         } catch (IllegalArgumentException e) {
-            System.out.println("Спіймано помилку Enum: " + e.getMessage());
+            log.error("Setter validation failed: {}", e.getMessage());
+            System.out.println("Перехоплено помилку сеттера: " + e.getMessage());
         }
 
-        System.out.println("\n3. Робота switch-виразів ");
-        System.out.println("Зона для CROSSFIT: " +FitnessUtils.getTrainerZone(Specialty.CROSSFIT));
-        System.out.println("Години доступу для STUDENT: " +FitnessUtils.getAllowedAccessHours(PassType.STUDENT));
-
-        System.out.println("\n4. Record з невалідними даними ");
-        try {
-            Member invalidMember =new Member("TAX999", "Young Boy", LocalDate.of(2020, 1, 1));
-        } catch (IllegalArgumentException e) {
-            System.out.println("Спіймано помилку конструктора record: " +e.getMessage());
-        }
-
-        System.out.println("\n5. Порівняння record-об'єктів (equals /hashCode) ");
-        Member member1 = new Member("TAX777", "Ivan", LocalDate.of(2000, 1, 1));
-        Member member2 = new Member("TAX777", "Ivan", LocalDate.of(2000, 1, 1));
-        
-        System.out.println("member1 == member2 (різні об'єкти в пам'яті): " +(member1 == member2));
-        System.out.println("member1.equals(member2) (однакові дані): " +member1.equals(member2));
-        System.out.println("member1.hashCode() == member2.hashCode(): " +(member1.hashCode() == member2.hashCode()));
-
-        System.out.println("\n6. Вивід record через згенерований toString() ");
-        Trainer trainer = new Trainer("TR-01", "Max Power", Specialty.GYM);
-        MembershipPass pass = MembershipPass.of("PASS-001", member, PassType.VIP, 
-                LocalDate.now(), LocalDate.now().plusMonths(1), 1500.0);
-        
-        System.out.println(member);
-        System.out.println(trainer);
-        System.out.println(pass);
+        System.out.println("\n4. Логування всіх трьох рівнів продемонстровано вище");
+        log.info("Lab 3 execution finished successfully");
     }
 }
