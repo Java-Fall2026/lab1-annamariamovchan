@@ -9,6 +9,7 @@ import ua.fitness.model.Trainer;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,27 +19,29 @@ public class TrainerLoader {
 
     public static List<Trainer> loadTrainers(String filePath) {
         List<Trainer> trainers = new ArrayList<>();
-        Path path=Path.of(filePath);
+        Path path = Path.of(filePath);
 
         log.info("Starting to load trainers from file: {}", filePath);
 
-        try (BufferedReader br=Files.newBufferedReader(path)) {
-            String line=br.readLine(); 
-            int lineNumber=1;
+        try (BufferedReader br = Files.newBufferedReader(path)) {
+            String line = br.readLine(); 
+            int lineNumber = 1;
 
-            while ((line=br.readLine()) !=null) {
+            while ((line = br.readLine()) != null) {
                 lineNumber++;
                 try {
-                    Trainer trainer =parseTrainerFromLine(line, lineNumber);
+                    Trainer trainer = parseTrainerFromLine(line, lineNumber);
                     trainers.add(trainer);
                 } catch (InvalidDataException e) {
-                    log.warn("Skipping invalid row at line {}: {}",lineNumber, e.getMessage());
+                    log.warn("Skipping invalid row at line {}: {}", lineNumber, e.getMessage());
                 }
             }
             log.info("Successfully loaded {} trainers.", trainers.size());
 
+        } catch (NoSuchFileException e) {
+            log.warn("File not found. Program continues. Path: {}", filePath);
         } catch (IOException e) {
-            log.error("Failed to read file. Program continues. File: {}, Error: {}", filePath, e.getMessage());
+            log.error("I/O error occurred while reading file: {}", filePath, e);
         } finally {
             log.info("File reading process finished for path: {}", filePath);
         }
@@ -48,12 +51,12 @@ public class TrainerLoader {
     public static Trainer parseTrainerFromLine(String line, int lineNumber) throws InvalidDataException {
         String[] parts = line.split(",");
 
-        if (parts.length !=3) {
-            throw new InvalidDataException("Line " +lineNumber+": Expected 3 columns, got "+parts.length);
+        if (parts.length != 3) {
+            throw new InvalidDataException("Line " + lineNumber + ": Expected 3 columns, got " + parts.length);
         }
         try {
-            String id =parts[0].trim();
-            String name= parts[1].trim();
+            String id = parts[0].trim();
+            String name = parts[1].trim();
 
             if (name.isEmpty()) {
                 throw new IllegalArgumentException("Trainer name cannot be empty");
@@ -61,10 +64,10 @@ public class TrainerLoader {
 
             Specialty specialty = Specialty.valueOf(parts[2].trim().toUpperCase());
 
-            return new Trainer(id, name,specialty);
+            return new Trainer(id, name, specialty);
 
         } catch (IllegalArgumentException | NullPointerException e) {
-            throw new InvalidDataException("Line " +lineNumber+": Invalid data format", e);
+            throw new InvalidDataException("Line " + lineNumber + ": Invalid data format", e);
         }
     }
 }
