@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import java.util.Comparator;
+import java.util.stream.Stream;
+
 public class GenericRepository<T> {
     private static final Logger log = LoggerFactory.getLogger(GenericRepository.class);
 
@@ -82,6 +85,34 @@ public class GenericRepository<T> {
     public List<T> findAll() {
         return List.copyOf(items.values());
     }
+
+    public List<T> findAllSorted(Comparator<T> comparator) {
+        if (comparator == null) {
+            throw new IllegalArgumentException("comparator must not be null");
+        }
+        return items.values().stream()
+                .sorted(comparator)
+                .toList();
+    }
+
+    public List<T> findAllSortedByIdentity(SortOrder order) {
+        if (order == null) {
+            throw new IllegalArgumentException("order must not be null");
+        }
+        Comparator<String> byKey = order == SortOrder.ASC
+                ? Comparator.naturalOrder()
+                : Comparator.reverseOrder();
+        List<T> result = items.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey(byKey))
+                .map(Map.Entry::getValue)
+                .toList();
+        log.info("Sorted '{}' by identity {}: {} items", name, order, result.size());
+        return result;
+    }
+
+    public Stream<T> stream() {
+        return items.values().stream();
+    }    
 
     public int size() {
         return items.size();
