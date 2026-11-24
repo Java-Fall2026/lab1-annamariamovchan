@@ -113,14 +113,15 @@ class RepositoriesTest {
         assertEquals(List.of(p3), passes.findByTypeAndMinPrice(PassType.STANDARD, 200.0));
     }
 
+    //!
     @Test
     @DisplayName("6c. Text search is case-insensitive and member birth-date range is inclusive")
     void memberSearches() {
         assertEquals(List.of(olha, olhaM), members.findByNameContaining("OLHA"));
         assertEquals(List.of(andrii),
                 members.findByBirthDateBetween(LocalDate.of(1995, 3, 10), LocalDate.of(1995, 3, 10)));
-        assertTrue(members.findByNameContainingAndBornBefore("olha", LocalDate.of(1995, 1, 1))
-                .stream().allMatch(m -> m.birthDate().isBefore(LocalDate.of(1995, 1, 1))));
+        assertEquals(List.of(olhaM),
+                members.findByNameContainingAndBornBefore("olha", LocalDate.of(1995, 1, 1)));
     }
 
     @Test
@@ -159,5 +160,41 @@ class RepositoriesTest {
     @DisplayName("11. Average price per type is computed per group")
     void averageByType() {
         assertEquals(200.1, passes.averagePriceByType().get(PassType.STANDARD), 1e-9);
+    }
+
+    @Test
+    @DisplayName("12. findByOwnerNameContaining returns the owner's passes in natural order")
+    void ownerNameSearch() {
+        assertEquals(List.of(p1, p4),passes.findByOwnerNameContaining("KOVAL"));
+        assertTrue(passes.findByOwnerNameContaining("zzz").isEmpty());
+    }
+
+    @Test
+    @DisplayName("13. findCheapest limits and orders the result")
+    void cheapest() {
+        assertEquals(List.of(p1, p4),passes.findCheapest(2));
+        assertEquals(List.of(p1, p4, p2, p3), passes.findCheapest(10));
+        assertThrows(IllegalArgumentException.class, () -> passes.findCheapest(0));
+    }
+
+    @Test
+    @DisplayName("14. findDistinctOwnerNames removes duplicates and sorts")
+    void distinctOwnerNames() {
+        //Olha Koval owns two passes but must appear onnce
+        assertEquals(List.of("Andrii Bondar", "Olha Koval", "Olha Melnyk"),
+                passes.findDistinctOwnerNames());
+    }
+
+    @Test
+    @DisplayName("15. Birth date ascending, then name descending on equal dates")
+    void birthDateThenNameDesc() {
+        Member anna = new Member("M-20", "Anna", LocalDate.of(2000, 1, 1));
+        Member boris = new Member("M-21", "Boris", LocalDate.of(2000, 1, 1));
+        Member zoya = new Member("M-22", "Zoya", LocalDate.of(1990, 1, 1));
+        MemberRepository repo = new MemberRepository();
+        repo.addAll(List.of(anna, boris, zoya));
+
+        //zoya is oldestso she is first; same birthDate is ordered by name DESC
+        assertEquals(List.of(zoya, boris, anna), repo.findAllSortedByBirthDateThenNameDesc());
     }
 }

@@ -23,17 +23,17 @@ public class MemberRepository extends GenericRepository<Member> {
     }
 
     public List<Member> findAllSortedNaturally() {
-    List<Member> result = findAllSorted(Comparator.naturalOrder());
-    log.info("Sorted members by natural order (fullName, taxId, birthDate): {} items", result.size());
-    return result;
+        List<Member> result = findAllSorted(Comparator.naturalOrder());
+        log.info("Sorted members by natural order (fullName, taxId, birthDate): {} items", result.size());
+        return result;
     }
 
+//fixed
     public List<Member> findAllSortedByBirthDateThenNameDesc() {
-        List<Member> result = findAllSorted(
+        List<Member> result=findAllSorted(
                 Comparator.comparing(Member::birthDate)
-                        .thenComparing(Member::fullName)
-                        .reversed());
-        log.info("Sorted members by birthDate, fullName (reversed): {} items", result.size());
+                        .thenComparing(Comparator.comparing(Member::fullName).reversed()));
+        log.info("Sorted members by birthDate ASC, fullName DESC: {} items", result.size());
         return result;
     }
 
