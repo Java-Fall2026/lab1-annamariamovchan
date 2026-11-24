@@ -2,120 +2,128 @@ package ua.fitness;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ua.fitness.exception.DuplicateIdentityException;
-import ua.fitness.model.*;
-import ua.fitness.repository.GenericRepository;
-import ua.fitness.util.TrainerLoader;
+import ua.fitness.model.Member;
+import ua.fitness.model.MembershipPass;
+import ua.fitness.model.PassType;
+import ua.fitness.repository.MemberRepository;
+import ua.fitness.repository.MembershipPassRepository;
+import ua.fitness.repository.SortOrder;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.TreeSet;
+import java.util.stream.Stream;
 
 public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
-        log.info("Starting Lab 4 execution");
-
-   
-        System.out.println("1. Три репозиторії різних типів");
-
-        GenericRepository<Trainer> trainerRepo =
-                new GenericRepository<>("trainers", Trainer::trainerId);
-        GenericRepository<Member> memberRepo =
-                new GenericRepository<>("members", m -> m.taxId());
-
-        GenericRepository<WorkoutSession> sessionRepo = new GenericRepository<>("sessions",
-                s -> s.getTrainer().trainerId() + "|" + s.getPass().passCode() + "|" + s.getSessionDate());
-
-        Trainer ivan = new Trainer("TR-01", "Ivan Ivanenko", Specialty.GYM);
-        Trainer anna = new Trainer("TR-02", "Anna Petrenko", Specialty.YOGA);
-        Member member = new Member("M-1", "Olha Koval", LocalDate.of(2000, 5, 17));
-        MembershipPass pass = new MembershipPass("PASS-1", member, PassType.STANDARD,
-                LocalDate.now(), LocalDate.now().plusDays(30), 1500.0);
-        WorkoutSession session = new WorkoutSession(ivan, pass, LocalDate.now().plusDays(3), 60);
-
-        trainerRepo.add(ivan);
-        trainerRepo.add(anna);
-        memberRepo.add(member);
-        sessionRepo.add(session);
-
-        System.out.println("Тренерів: " + trainerRepo.size()
-                + ", учасників: " + memberRepo.size()
-                + ", тренувань: " + sessionRepo.size());
+        log.info("Starting Lab 5 execution");
 
         
-        System.out.println("\n2. Пошук за identity");
-        System.out.println("TR-01 -> " + trainerRepo.findByIdentity("TR-01")
-                .map(Trainer::name).orElse("не знайдено"));
-        System.out.println("TR-99 -> " + trainerRepo.findByIdentity("TR-99")
-                .map(Trainer::name).orElse("не знайдено"));
-        System.out.println("M-1 -> " + memberRepo.findByIdentity("M-1")
-                .map(Member::fullName).orElse("не знайдено"));
-        System.out.println("M-404 -> " + memberRepo.findByIdentity("M-404")
-                .map(Member::fullName).orElse("не знайдено"));
+        System.out.println("1. Наповнення двох доменних репозиторіїв");
+        MemberRepository members = new MemberRepository();
+        MembershipPassRepository passes = new MembershipPassRepository();
+
+        Member olha = new Member("M-1", "Olha Koval", LocalDate.of(2000, 5, 17));
+        Member andrii = new Member("M-2", "Andrii Bondar", LocalDate.of(1995, 3, 10));
+        Member olhaM = new Member("M-3", "Olha Melnyk", LocalDate.of(1990, 1, 1));
+        members.addAll(List.of(olha, andrii, olhaM));
+
+        passes.addAll(List.of(
+                new MembershipPass("P-1", olha, PassType.STANDARD,
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 6, 30), 100.2),
+                new MembershipPass("P-2", andrii, PassType.PREMIUM,
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 6, 30), 100.7),
+                new MembershipPass("P-3", olhaM, PassType.STANDARD,
+                        LocalDate.of(2026, 2, 1), LocalDate.of(2026, 12, 31), 300.0),
+                new MembershipPass("P-4", olha, PassType.VIP,
+                        LocalDate.of(2026, 3, 1), LocalDate.of(2026, 9, 30), 100.2)));
+        System.out.println("Учасників: " + members.size() + ", абонементів: " + passes.size());
+
+
+        System.out.println("\n2. Сортування за природним порядком і за доменними критеріями");
+        System.out.println("Природний порядок (ціна): ");
+        passes.findAllSortedNaturally()
+                .forEach(p -> System.out.println("  " + p.passCode() + " " + p.price()));
+        System.out.println("За ім'ям (учасники): ");
+        members.findAllSortedByName()
+                .forEach(m -> System.out.println("  " + m.fullName()));
+        System.out.println("Багаторівневе: endDate за зростанням, потім ціна за спаданням:");
+        passes.findAllSortedByEndDateThenPriceDesc()
+                .forEach(p -> System.out.println("  " + p.passCode() + " " + p.endDate() + " " + p.price()));
 
        
-        System.out.println("\n3. Наповнення репозиторію з CSV-файла");
-        GenericRepository<Trainer> csvRepo =
-                new GenericRepository<>("csv-trainers", Trainer::trainerId);
-        List<Trainer> loaded = TrainerLoader.loadTrainers("data/trainers.csv");
-        System.out.println("Зчитано коректних рядків: " + loaded.size());
+        System.out.println("\n3. findAllSortedByIdentity в обидва боки");
+        System.out.println("ASC: " + passes.findAllSortedByIdentity(SortOrder.ASC)
+                .stream().map(MembershipPass::passCode).toList());
+        System.out.println("DESC: " + passes.findAllSortedByIdentity(SortOrder.DESC)
+                .stream().map(MembershipPass::passCode).toList());
 
-        Trainer csvDuplicate = null;
-        for (Trainer t : loaded) {
-            try {
-                csvRepo.add(t);
-            } catch (DuplicateIdentityException e) {
-                csvDuplicate = t;
-                System.out.println("Дублікат із CSV відхилено: " + e.getMessage());
-            }
-        }
-        System.out.println("У репозиторії після CSV: " + csvRepo.size());
+        System.out.println("\n4. TreeSet із компаратором за ім'ям");
+        TreeSet<Member> byName = new TreeSet<>(Comparator.comparing(Member::fullName));
+        Member twin1 = new Member("M-10", "Same Name", LocalDate.of(1999, 1, 1));
+        Member twin2 = new Member("M-11", "Same Name", LocalDate.of(1998, 1, 1));
+        byName.add(twin1);
+        byName.add(twin2);
+        System.out.println("Додано 2 різні об'єкти з однаковим ім'ям, у наборі: " + byName.size());
 
-        if (csvDuplicate != null) {
-            boolean added = csvRepo.addIfAbsent(csvDuplicate);
-            System.out.println("addIfAbsent для того ж дубліката повернув: " + added
-                    + " (розмір: " + csvRepo.size() + ")");
-        }
+        System.out.println("\n5. Пошук за кожним критерієм");
+        System.out.println("Ім'я містить 'olha': "
+                + members.findByNameContaining("olha").stream().map(Member::fullName).toList());
+        System.out.println("Народились 1990-01-01..1995-12-31: "
+                + members.findByBirthDateBetween(LocalDate.of(1990, 1, 1), LocalDate.of(1995, 12, 31))
+                .stream().map(Member::fullName).toList());
+        System.out.println("Ім'я містить 'olha' і народилась до 1995: "
+                + members.findByNameContainingAndBornBefore("olha", LocalDate.of(1995, 1, 1))
+                .stream().map(Member::fullName).toList());
+        System.out.println("Власник містить 'koval': "
+                + passes.findByOwnerNameContaining("koval").stream().map(MembershipPass::passCode).toList());
+        System.out.println("Ціна 100.5..300: "
+                + passes.findByPriceBetween(100.5, 300.0).stream().map(MembershipPass::passCode).toList());
+        System.out.println("STANDARD і ціна від 200: "
+                + passes.findByTypeAndMinPrice(PassType.STANDARD, 200.0)
+                .stream().map(MembershipPass::passCode).toList());
+        System.out.println("Два найдешевші: "
+                + passes.findCheapest(2).stream().map(MembershipPass::passCode).toList());
+        System.out.println("Унікальні власники: " + passes.findDistinctOwnerNames());
 
-
-        System.out.println("\n4. Дублікат: add проти addIfAbsent");
+        System.out.println("\n6. Результат, якого немає (Optional)");
+        System.out.println("Префікс 'And': " + members.findFirstByNamePrefix("And")
+                .map(Member::fullName).orElse("не знайдено"));
+        System.out.println("Префікс 'Zzz': " + members.findFirstByNamePrefix("Zzz")
+                .map(Member::fullName).orElse("не знайдено"));
+        passes.findFirstExpiringBefore(LocalDate.of(2026, 7, 1))
+                .ifPresent(p -> System.out.println("Перший, що спливає до 2026-07-01: " + p.passCode()));
+        System.out.println("Спливає до 2025-01-01: " + passes.findFirstExpiringBefore(LocalDate.of(2025, 1, 1))
+                .map(MembershipPass::passCode)
+                .orElseGet(() -> "немає таких абонементів"));
         try {
-            trainerRepo.add(ivan);
-            System.out.println("add: дублікат додано (так не має бути)");
-        } catch (DuplicateIdentityException e) {
-            System.out.println("add: виняток -> " + e.getMessage());
+            passes.findFirstExpiringBefore(LocalDate.of(2025, 1, 1))
+                    .orElseThrow(() -> new NoSuchElementException("No pass expires before 2025-01-01"));
+        } catch (NoSuchElementException e) {
+            System.out.println("orElseThrow: " + e.getMessage());
         }
-        boolean added = trainerRepo.addIfAbsent(ivan);
-        System.out.println("addIfAbsent: повернув " + added + ", виняток не виник");
-        System.out.println("Розмір репозиторію тренерів: " + trainerRepo.size());
 
-    
-        System.out.println("\n5. Видалення");
-        System.out.println("Видалення TR-02 (наявний): " + trainerRepo.removeByIdentity("TR-02"));
-        System.out.println("Видалення TR-02 ще раз (відсутній): " + trainerRepo.removeByIdentity("TR-02"));
-        System.out.println("Розмір після видалення: " + trainerRepo.size());
+        System.out.println("\n7. Групування й агрегація");
+        passes.groupByType().forEach((type, list) ->
+                System.out.println("  " + type + " -> " + list.stream().map(MembershipPass::passCode).toList()));
+        passes.averagePriceByType().forEach((type, avg) ->
+                System.out.printf("  середня ціна %s: %.2f%n", type, avg));
+        System.out.println("Сума цін: " + passes.totalPrice());
 
-
-        System.out.println("\n6. Логування всіх трьох рівнів");
-        System.out.println("INFO і WARN логує репозиторій (додавання, дублікати, пошук, видалення)");
+        System.out.println("\n8. Спроба пройти стрім двічі");
+        Stream<MembershipPass> stream = passes.stream();
+        System.out.println("Перший прохід, кількість: " + stream.count());
         try {
-            trainerRepo.add(null);
-        } catch (IllegalArgumentException e) {
-  
-            System.out.println("ERROR: add(null) -> " + e.getMessage());
+            stream.count();
+        } catch (IllegalStateException e) {
+            log.error("Stream reuse failed: {}", e.getMessage());
+            System.out.println("Перехоплено: " + e.getMessage());
         }
 
-    
-        System.out.println("\n7. Перевірки з ЛР3");
-        TrainerLoader.loadTrainers("data/not_exists.csv");
-        try {
-            session.setDurationMinutes(-15);
-        } catch (IllegalArgumentException e) {
-            log.error("Setter validation failed: {}", e.getMessage());
-            System.out.println("Перехоплено помилку сеттера: " + e.getMessage());
-        }
-
-        log.info("Lab 4 execution finished successfully");
+        log.info("Lab 5 execution finished successfully");
     }
 }
